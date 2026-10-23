@@ -36,6 +36,15 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
 .steps-ed td input{width:76px}.warn{color:var(--red);font-weight:600}.okc{color:#1f7a3d;font-weight:600}
 .bar2{height:8px;border-radius:4px;background:var(--line);overflow:hidden}.bar2>span{display:block;height:100%;background:linear-gradient(90deg,var(--bar1),var(--bar2))}
 .small{font-size:.78rem}.hide{display:none}
+.todaybar{display:none}
+.flyout{position:fixed;z-index:41;margin:0 !important;overflow-y:auto;overscroll-behavior:contain;visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s;box-shadow:0 10px 40px rgba(60,20,40,.25)}
+.flyout.open{visibility:visible;transform:none !important;transition:transform .25s ease}
+.flyhead{display:flex;align-items:center;gap:8px;position:sticky;top:-12px;background:var(--card);padding:4px 0 8px;margin-top:-4px;z-index:1}.flyhead h2{flex:1;margin:0}
+#dayClose{min-width:40px;min-height:40px;font-size:1rem}
+.backdrop{position:fixed;inset:0;z-index:40;background:rgba(40,20,30,.35);opacity:0;pointer-events:none;transition:opacity .2s}.backdrop.open{opacity:1;pointer-events:auto}
+@media (min-width:761px){.flyout{top:0;right:0;bottom:0;width:min(460px,100vw);border-radius:18px 0 0 18px !important;transform:translateX(105%)}}
+@media (max-width:760px){.flyout{left:0;right:0;bottom:0;max-height:86vh;border-radius:20px 20px 0 0 !important;padding-bottom:calc(16px + env(safe-area-inset-bottom)) !important;transform:translateY(105%)}
+  .flyout::before{content:"";display:block;width:42px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 8px}}
 .backupnag{background:color-mix(in srgb,var(--blue) 10%,var(--card));border-radius:10px;padding:6px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.backupnag.hide{display:none}
 .tabbar{display:none}
 @media (max-width:760px){
@@ -43,6 +52,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   .app{margin:8px auto;padding:0 10px;gap:10px;grid-template-columns:minmax(0,1fr)}.app>div{display:contents}
   select{max-width:100%}#protoForm label{max-width:100%}#protoForm select{width:100%}
   #calPanel{order:1}#dayPanel{order:2}
+  .todaybar:not(.hide){display:flex;width:100%;justify-content:space-between;align-items:center;margin:0 0 8px;padding:10px 14px;border-radius:12px !important;font-weight:700;min-height:44px}
+  .todaybar.done{background:color-mix(in srgb,var(--green) 18%,var(--card)) !important;color:var(--ink)}
   /* Calendar runs edge to edge on phones */
   #calPanel{margin-left:-10px !important;margin-right:-10px !important;border-radius:0 !important;border-left:0;border-right:0;padding:10px 3px 8px}
   #calPanel .calhead{padding:0 8px}#calPanel .note{padding:0 8px}
@@ -73,6 +84,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     <section class="panel" data-tab="cal" id="calPanel">
       <div class="calhead"><button class="ghost" id="prev">‹</button><h2 id="monthTitle"></h2><button class="ghost" id="today">Today</button><button class="ghost" id="next">›</button></div>
       <p class="small backupnag hide" id="backupNag"></p>
+      <button class="todaybar hide" id="todayBar"></button>
       <div class="grid7" id="dows"></div>
       <div class="grid7" id="cal"></div>
       <p class="note">Hatched days are cycle washout. Doses come from your protocols; units are computed for the vial each protocol uses.</p>
@@ -84,7 +96,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     </section>
   </div>
   <div>
-    <section class="panel" data-tab="cal" id="dayPanel"><h2 id="dayTitle">Day</h2><div id="dayBody"></div></section>
+    <section class="panel flyout" id="dayPanel" role="dialog" aria-modal="true" aria-labelledby="dayTitle" aria-hidden="true"><div class="flyhead"><h2 id="dayTitle">Day</h2><button class="ghost" id="dayClose" aria-label="Close">✕</button></div><div id="dayBody"></div></section>
+    <div class="backdrop" id="dayBackdrop"></div>
     <section class="panel" data-tab="cyc" style="margin-top:14px"><h2>Cycles &amp; vials</h2><div id="status"></div></section>
     <section class="panel" data-tab="stock" id="stockPanel" style="margin-top:14px"><h2>Stock</h2><div id="stock"></div>
       <div class="proto"><b class="small">Add to stock</b>
@@ -281,7 +294,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
       html += '<div class="day' + (m !== view.getMonth() ? ' out' : '') + (s === TODAY ? ' today' : '') + (s === sel ? ' sel' : '') + (wash ? ' wash' : '') + (dosed ? ' dosed' : '') + '" data-d="' + s + '"><span class="n">' + (+s.slice(8)) + '</span>' + chips + wl + '</div>';
     }
     var cal = document.getElementById('cal'); cal.innerHTML = html;
-    Array.prototype.forEach.call(cal.children, function (el) { el.onclick = function () { sel = el.getAttribute('data-d'); renderAll(); if (phone()) document.getElementById('dayPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+    Array.prototype.forEach.call(cal.children, function (el) { el.onclick = function () { openDay(el.getAttribute('data-d')); }; });
   }
 
   // ---- day panel ----
@@ -413,7 +426,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var el = document.getElementById('protos');
     el.innerHTML = S.protocols.map(function (p) {
       return '<div class="proto" style="border-left:5px solid ' + colorOf(p) + '"><div class="row"><b style="flex:1">' + esc(p.name) + '</b>' +
-        (p.route === 'Supplement' ? '' : '<button class="ghost" data-edit="' + p.id + '">Edit</button>') + '<button class="ghost" data-pause="' + p.id + '">' + (p.paused ? 'Resume' : 'Pause') + '</button><button class="danger" data-del="' + p.id + '">Delete</button></div>' +
+        (p.route === 'Supplement' ? '<button class="ghost" data-sedit="' + p.id + '">Edit</button>' : '<button class="ghost" data-edit="' + p.id + '">Edit</button>') + '<button class="ghost" data-pause="' + p.id + '">' + (p.paused ? 'Resume' : 'Pause') + '</button><button class="danger" data-del="' + p.id + '">Delete</button></div>' +
         '<p class="small">Start ' + nice(p.start) + ' · ' + (p.weekdays && p.weekdays.length ? p.weekdays.map(function (w) { return WD[w]; }).join('/') : 'every ' + p.intervalDays + ' d') + (injectable(p) ? ' · ' + p.vial.mg + ' ' + (p.unit || 'mg') + ' + ' + p.vial.ml + ' mL (' + f1(p.vial.mg / p.vial.ml) + ' ' + (p.unit || 'mg') + '/mL)' : ' · ' + esc(p.route || '')) + (p.cycleOn ? ' · ' + p.cycleOn + ' d on / ' + p.cycleOff + ' d off' + (p.cycles ? ' × ' + p.cycles : ' (repeating)') : '') + (p.endDate ? ' · final dose ' + nice(p.endDate) : '') + (p.paused ? ' · <b>paused</b>' : '') + '</p>' +
         '<p class="small">' + p.steps.map(function (s) { return s.dose + ' ' + (p.unit || 'mg') + (s.weeks ? ' × ' + s.weeks + ' wk' : ' onward'); }).join(' → ') + (p.template ? ' <span class="muted">(' + esc(p.template) + ')</span>' : '') + '</p>' + (p.note ? '<p class="small muted">' + esc(p.note) + '</p>' : '') +
         '<div class="row"><label class="small">Dose time <input type="time" data-time="' + p.id + '" value="' + doseTime(p) + '"></label></div>' +
@@ -435,6 +448,28 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     });
     Array.prototype.forEach.call(el.querySelectorAll('[data-pause]'), function (b) {
       b.onclick = function () { var p = S.protocols.find(function (x) { return x.id === b.getAttribute('data-pause'); }); if (p.paused) { if (p.pausedAt && p.pausedAt < TODAY) (p.pauses = p.pauses || []).push([p.pausedAt, addDays(TODAY, -1)]); p.paused = false; delete p.pausedAt; } else { p.paused = true; p.pausedAt = TODAY; } save(); renderAll(); };
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-sedit]'), function (b) {
+      b.onclick = function () {
+        var p = S.protocols.find(function (x) { return x.id === b.getAttribute('data-sedit'); }), card = b.closest('.proto');
+        if (card.querySelector('.sedit')) { card.querySelector('.sedit').remove(); return; }
+        card.insertAdjacentHTML('beforeend', '<div class="sedit"><div class="row"><label class="small">Dose <input type="number" step="any" min="0" class="se-dose" value="' + p.steps[0].dose + '" style="width:80px"> ' + esc(p.unit || '') + '</label>' +
+          '<label class="small">Per day <input type="number" min="1" max="6" class="se-pd" value="' + (p.perDay || 1) + '" style="width:50px"></label></div>' +
+          '<div class="row"><label class="small">Start <input type="date" class="se-start" value="' + p.start + '"></label><label class="small">End <input type="date" class="se-end" value="' + (p.endDate || '') + '"></label></div>' +
+          '<div class="row small">Days: ' + WD.map(function (w, i) { return '<label><input type="checkbox" class="se-wd" value="' + i + '"' + ((p.weekdays || []).indexOf(i) >= 0 ? ' checked' : '') + '>' + w + '</label>'; }).join(' ') + ' <span class="muted">(none = every day)</span></div>' +
+          '<div class="row"><button class="se-save">Save</button><button class="ghost se-cancel">Cancel</button></div></div>');
+        var ed = card.querySelector('.sedit');
+        ed.querySelector('.se-cancel').onclick = function () { ed.remove(); };
+        ed.querySelector('.se-save').onclick = function () {
+          var dose = parseFloat(ed.querySelector('.se-dose').value), start = ed.querySelector('.se-start').value, end = ed.querySelector('.se-end').value;
+          if (!(dose > 0)) { alert('Enter a dose.'); return; }
+          if (!start) { alert('Enter a start date.'); return; }
+          if (end && end < start) { alert('The end date is before the start date.'); return; }
+          p.steps = [{ dose: dose, weeks: null }]; p.start = start; p.endDate = end || null; p.perDay = Math.max(1, parseInt(ed.querySelector('.se-pd').value, 10) || 1);
+          p.weekdays = Array.prototype.filter.call(ed.querySelectorAll('.se-wd'), function (x) { return x.checked; }).map(function (x) { return +x.value; });
+          save(); renderAll();
+        };
+      };
     });
     Array.prototype.forEach.call(el.querySelectorAll('[data-edit]'), function (b) {
       b.onclick = function () { openForm(S.protocols.find(function (x) { return x.id === b.getAttribute('data-edit'); })); };
@@ -532,7 +567,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
             if (br && !br.washout && !S.log[bk]) S.log[bk] = { status: 'taken', dose: br.dose, site: '', note: 'Backfilled (start set in the past)', time: '', perDay: p.perDay };
           }
         }
-        save(); f.classList.add('hide'); f.innerHTML = ''; setTab('cal'); sel = p.start; view = new Date(parse(p.start)); view = new Date(view.getUTCFullYear(), view.getUTCMonth(), 1); renderAll();
+        save(); f.classList.add('hide'); f.innerHTML = ''; setTab('cal'); sel = p.start > TODAY ? p.start : TODAY; view = new Date(parse(sel)); view = new Date(view.getUTCFullYear(), view.getUTCMonth(), 1); renderAll();
       };
       bindRm();
     }
@@ -615,11 +650,37 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var low = S.protocols.map(function (p) { var ro = runOut(p); return ro && !ro.enough && ro.days < 21 ? esc(p.short) + ' ~' + nice(ro.date) : ''; }).filter(Boolean);
     return low.length ? 'Running low: ' + low.join(', ') + '. ' : '';
   }
-  function renderAll() { renderCal(); renderDay(); renderStatus(); renderProtos(); renderStock(); renderNag(); }
+  function renderToday() {
+    var due = 0, done = 0;
+    S.protocols.forEach(function (p) { var r = scheduleFor(p, TODAY); if (r && !r.washout) { if ((S.log[logKey(p, TODAY)] || {}).status) done++; else due++; } });
+    var el = document.getElementById('todayBar');
+    el.classList.toggle('hide', !due && !done);
+    el.classList.toggle('done', !due && done > 0);
+    el.innerHTML = due ? '<span>Today: ' + due + ' dose' + (due === 1 ? '' : 's') + ' to log</span><span>Log ›</span>' : '<span>Today: all ' + done + ' logged ✓</span><span>View ›</span>';
+    el.onclick = function () { view = new Date(); view.setDate(1); openDay(TODAY); };
+  }
+  function renderAll() { renderCal(); renderDay(); renderStatus(); renderProtos(); renderStock(); renderNag(); renderToday(); }
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* not supported */ }
   // ---- phone tabs: one section at a time; desktop ignores data-tab ----
   function phone() { return window.matchMedia && matchMedia('(max-width:760px)').matches; }
+  function openDay(d) {
+    sel = d; renderAll();
+    var p = document.getElementById('dayPanel');
+    p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); p.scrollTop = 0;
+    document.getElementById('dayBackdrop').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDay() {
+    var p = document.getElementById('dayPanel');
+    p.classList.remove('open'); p.setAttribute('aria-hidden', 'true');
+    document.getElementById('dayBackdrop').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('dayClose').onclick = closeDay;
+  document.getElementById('dayBackdrop').onclick = closeDay;
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDay(); });
   function setTab(t) {
+    closeDay();
     document.body.setAttribute('data-tab', t);
     Array.prototype.forEach.call(document.querySelectorAll('#tabbar [data-go]'), function (b) { b.classList.toggle('on', b.getAttribute('data-go') === t); });
     if (phone()) window.scrollTo(0, 0);
