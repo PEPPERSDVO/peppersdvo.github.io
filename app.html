@@ -630,7 +630,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var html = S.stock.map(function (x, i) {
       if (x.kind === 'supply') {
         var ro = supplyRunOut(x), perDayNow = injectionsOn(TODAY, false);
-        return '<div class="proto"><div class="row"><b style="flex:1">' + esc(x.name) + '</b><button class="ghost" data-sq="' + i + '" data-d="-1" aria-label="One less">−</button><b style="min-width:3ch;text-align:center">' + x.qty + '</b><button class="ghost" data-sq="' + i + '" data-d="1" aria-label="One more">+</button><button class="ghost" data-sbox="' + i + '">+ box (' + (x.perBox || 100) + ')</button><button class="ghost" data-sdel="' + i + '">Remove</button></div>' +
+        return '<div class="proto"><div class="row"><b style="flex:1">' + esc(x.name) + '</b><button class="ghost" data-sq="' + i + '" data-d="-1" aria-label="One less">−</button><input type="number" min="0" inputmode="numeric" data-sset="' + i + '" value="' + x.qty + '" aria-label="How many on hand" style="width:72px;text-align:center"><button class="ghost" data-sq="' + i + '" data-d="1" aria-label="One more">+</button><button class="ghost" data-sdel="' + i + '">Remove</button></div>' +
           '<p class="small">' + esc(x.unit) + ' on hand · ' + (x.usePer || 1) + ' per injection' + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
           '<p class="small">' + (ro.enough ? '<span class="okc">Enough for the rest of your injection schedules</span>' : '<span class="' + (ro.days < 21 ? 'warn' : '') + '">Runs out about ' + nice(ro.date) + ' (' + ro.days + ' d)</span>') + (perDayNow ? ' · ' + perDayNow + ' injection' + (perDayNow === 1 ? '' : 's') + ' today' : '') + '</p></div>';
       }
@@ -643,7 +643,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     }).join('');
     el.innerHTML = html || '<p class="muted">Nothing in stock yet. Add vials, packs or bottles below.</p>';
     Array.prototype.forEach.call(el.querySelectorAll('[data-sq]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sq')]; x.qty = Math.max(0, (+x.qty || 0) + +b.getAttribute('data-d')); save(); renderAll(); }; });
-    Array.prototype.forEach.call(el.querySelectorAll('[data-sbox]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sbox')]; x.qty = (+x.qty || 0) + (+x.perBox || 100); save(); renderAll(); }; });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-sset]'), function (inp) { inp.onchange = function () { var x = S.stock[+inp.getAttribute('data-sset')]; x.qty = Math.max(0, parseInt(inp.value, 10) || 0); save(); renderAll(); }; });
     Array.prototype.forEach.call(el.querySelectorAll('[data-sdel]'), function (b) { b.onclick = function () { if (confirm('Remove this item from stock?')) { S.stock.splice(+b.getAttribute('data-sdel'), 1); save(); renderAll(); } }; });
   }
   // Add form: catalog compounds, supplements, or anything typed in.
@@ -654,8 +654,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
       var v = sel.value, c = byslug[v], other = v === '__other', sup = SUPPLIES[v.slice(2)];
       document.getElementById('stName').classList.toggle('hide', !other);
       document.getElementById('stUseL').classList.toggle('hide', !sup);
-      document.getElementById('stSizeL').textContent = sup ? 'Per box' : 'Size'; document.getElementById('stQtyL').textContent = sup ? 'Boxes' : 'Qty';
-      if (sup) { document.getElementById('stUnit').textContent = sup.unit; document.getElementById('stSize').value = sup.perBox; document.getElementById('stUse').value = 1; return; }
+      document.getElementById('stSize').closest('label').classList.toggle('hide', !!sup); document.getElementById('stQtyL').textContent = sup ? 'How many' : 'Qty';
+      if (sup) { document.getElementById('stUse').value = 1; return; }
       var unit = other ? '' : c ? (c.unit || 'mg') : 'servings';
       var inj = c && (!c.route || c.route === 'Injectable');
       document.getElementById('stUnit').textContent = unit || 'per item';
@@ -669,10 +669,10 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     document.getElementById('stAdd').onclick = function () {
       var sup0 = SUPPLIES[sel.value.slice(2)];
       if (sup0) {
-        var per = parseInt(document.getElementById('stSize').value, 10) || sup0.perBox, boxes = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0), use = Math.max(1, parseInt(document.getElementById('stUse').value, 10) || 1);
+        var count = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0), use = Math.max(1, parseInt(document.getElementById('stUse').value, 10) || 1);
         var have = supplies().filter(function (x) { return x.supply === sel.value.slice(2); })[0];
-        if (have) { have.qty = (+have.qty || 0) + per * boxes; have.perBox = per; have.usePer = use; }
-        else S.stock.unshift({ id: newId(), kind: 'supply', supply: sel.value.slice(2), slug: '', name: sup0.name, unit: sup0.unit, perBox: per, usePer: use, qty: per * boxes, note: document.getElementById('stNote').value.trim() });
+        if (have) { have.qty = (+have.qty || 0) + count; have.usePer = use; }
+        else S.stock.unshift({ id: newId(), kind: 'supply', supply: sel.value.slice(2), slug: '', name: sup0.name, unit: sup0.unit, usePer: use, qty: count, note: document.getElementById('stNote').value.trim() });
         document.getElementById('stNote').value = ''; document.getElementById('stQty').value = 1; save(); renderAll(); return;
       }
       var v = sel.value, c = byslug[v], other = v === '__other', sp = v.indexOf('supp:') === 0 ? bySupp[v.slice(5)] : null;
