@@ -230,12 +230,12 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     if (!vs.length) return null;
     var cur = vs[0];
     var next = S.vials.filter(function (v) { return v.proto === p.id && v.mixed > cur.mixed; }).map(function (v) { return v.mixed; }).sort()[0] || '9999-12-31';
-    var used = 0;
+    var used = 0, n = 0;
     Object.keys(S.log).forEach(function (k) {
       var parts = k.split('|'), e = S.log[k];
-      if (parts[0] === p.id && e.status === 'taken' && parts[1] >= cur.mixed && parts[1] < next) used += e.dose * (p.perDay || 1);
+      if (parts[0] === p.id && e.status === 'taken' && parts[1] >= cur.mixed && parts[1] < next) { used += e.dose * (p.perDay || 1); n += p.perDay || 1; }
     });
-    return { vial: cur, used: used, left: cur.mg - used, age: diffDays(cur.mixed, s) };
+    return { vial: cur, used: used, left: cur.mg - used, age: diffDays(cur.mixed, s), doses: n };
   }
 
   // ---- calendar ----
@@ -287,7 +287,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
         '<div class="big">' + fd(dose) + ' ' + (p.unit || 'mg') + (injectable(p) ? ' <span class="muted">= ' + f1(u) + ' units · ' + (dose / (v.mg / v.ml)).toFixed(2) + ' mL</span>' : ' <span class="muted">' + esc(p.route) + '</span>') + '</div>' + ((p.perDay || 1) > 1 ? '<p class="kv"><b>× ' + p.perDay + ' injections today</b> (' + fd(dose * p.perDay) + ' mg total)</p>' : '') +
         (injectable(p) && u > 100 ? '<p class="warn small">Over 100 units: split across two injections.</p>' : '') +
         (p.note ? '<p class="kv">' + esc(p.note) + '</p>' : '') + '<p class="kv">Step ' + (r.step + 1) + ' of ' + p.steps.length + ' · week ' + r.week + (p.cycleOn ? ' · cycle ' + r.cycle + (p.cycles ? ' of ' + p.cycles : '') + ' (' + p.cycleOn + ' d on)' : '') + (sel === p.endDate ? ' · <b>final dose</b>' : '') + (injectable(p) ? ' · ' + v.mg + ' ' + (p.unit || 'mg') + ' vial + ' + v.ml + ' mL' : '') + '</p>' +
-        (!injectable(p) ? '' : vs ? '<p class="kv">Vial: ' + fd(vs.left) + ' ' + (p.unit || 'mg') + ' left · mixed ' + vs.age + ' d ago' + (p.useWithinDays && vs.age > p.useWithinDays ? ' <span class="warn">(past the catalog\'s ' + p.useWithinDays + '-day window)</span>' : '') + (vs.left < dose * (p.perDay || 1) ? ' <span class="warn">(not enough left for this dose)</span>' : '') + '</p>' : '<p class="kv">No vial logged. Use "Mixed new vial" below.</p>') +
+        (!injectable(p) ? '' : vs ? '<p class="kv">Vial: ' + fd(vs.left) + ' ' + (p.unit || 'mg') + ' left · ' + vs.doses + ' dose' + (vs.doses === 1 ? '' : 's') + ' taken · mixed ' + nice(vs.vial.mixed) + ' (' + vs.age + ' d ago)' + (p.useWithinDays && vs.age > p.useWithinDays ? ' <span class="warn">(past the catalog\'s ' + p.useWithinDays + '-day window)</span>' : '') + (vs.left < dose * (p.perDay || 1) ? ' <span class="warn">(not enough left for this dose)</span>' : '') + '</p>' : '<p class="kv">No vial logged. Use "Mixed new vial" below.</p>') +
         '<div class="row"><label class="small">Dose ' + (p.unit || 'mg') + ' <input type="number" step="0.05" min="0" value="' + dose + '" data-k="' + key + '" data-f="dose" style="width:80px"></label>' +
         (injectable(p) ? '<label class="small">Site <select data-k="' + key + '" data-f="site">' + SITES.map(function (x) { return '<option' + ((e.site || sugg) === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' : '') + '</div>' +
         '<div class="row"><input placeholder="Note" value="' + esc(e.note || '') + '" data-k="' + key + '" data-f="note" style="flex:1"></div>' +
@@ -330,17 +330,52 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
       p.steps.forEach(function (st) { avg += st.dose; cnt++; });
       h += '<div class="proto" style="border-left:5px solid ' + colorOf(p) + '"><b>' + esc(p.name) + '</b>' + line +
         (nextDose ? '<p class="small">Next dose: <b>' + nice(nextDose[0]) + '</b> · ' + fd(nextDose[1].dose) + ' ' + (p.unit || 'mg') + (injectable(p) ? ' (' + f1(units(p, nextDose[1].dose)) + ' units)' : '') + '</p>' : '<p class="small">No upcoming doses (protocol ended or paused).</p>') +
-        (injectable(p) && vs ? '<p class="small">Vial: ' + fd(vs.left) + ' of ' + vs.vial.mg + ' ' + (p.unit || 'mg') + ' left · ' + vs.age + ' d since mixing' + (p.useWithinDays && vs.age > p.useWithinDays ? ' <span class="warn">past the catalog window</span>' : '') + '</p><div class="bar2"><span style="width:' + Math.max(0, vs.left / vs.vial.mg * 100) + '%"></span></div>' : '') +
-        (injectable(p) ? '<div class="row"><label class="small">Mixed new vial on <input type="date" value="' + TODAY + '" id="mix-' + p.id + '"></label><button class="ghost" data-mix="' + p.id + '">Log vial</button></div>' : '') + '</div>';
+        (injectable(p) && vs ? '<p class="small">Vial: ' + fd(vs.left) + ' of ' + vs.vial.mg + ' ' + (p.unit || 'mg') + ' left · ' + vs.doses + ' dose' + (vs.doses === 1 ? '' : 's') + ' taken · mixed ' + nice(vs.vial.mixed) + ' · ' + vs.age + ' d since mixing' + (p.useWithinDays && vs.age > p.useWithinDays ? ' <span class="warn">past the catalog window</span>' : '') + '</p><div class="bar2"><span style="width:' + Math.max(0, vs.left / vs.vial.mg * 100) + '%"></span></div>' : '') +
+        (injectable(p) && vs ? '<div class="row"><label class="small">Current vial mixed <input type="date" value="' + vs.vial.mixed + '" id="cur-' + p.id + '"></label><button class="ghost" data-vupd="' + p.id + '" data-vi="' + S.vials.indexOf(vs.vial) + '">Save date</button><button class="ghost" data-vdel="' + p.id + '" data-vi="' + S.vials.indexOf(vs.vial) + '">Remove</button></div>' : '') +
+        (injectable(p) ? '<div class="row"><label class="small">Log a new vial mixed on <input type="date" value="' + TODAY + '" id="mix-' + p.id + '"></label><label class="small"><input type="checkbox" id="mixtk-' + p.id + '" checked> mark scheduled doses since then as taken</label><button class="ghost" data-mix="' + p.id + '">Log vial</button></div>' : '') + '</div>';
     });
     var el = document.getElementById('status');
     el.innerHTML = h || '<p class="muted">Add a protocol to start tracking.</p>';
     Array.prototype.forEach.call(el.querySelectorAll('[data-mix]'), function (b) {
       b.onclick = function () {
         var p = S.protocols.find(function (x) { return x.id === b.getAttribute('data-mix'); });
-        S.vials.push({ proto: p.id, mixed: document.getElementById('mix-' + p.id).value, mg: p.vial.mg, ml: p.vial.ml }); save(); renderAll();
+        var mixed = document.getElementById('mix-' + p.id).value;
+        if (!mixed) return;
+        S.vials.push({ proto: p.id, mixed: mixed, mg: p.vial.mg, ml: p.vial.ml });
+        var filled = backfillSince(p, mixed);
+        save(); renderAll();
+        alert('Vial logged, mixed ' + nice(mixed) + '.' + (filled ? ' ' + filled + ' scheduled dose' + (filled === 1 ? '' : 's') + ' since then marked as taken.' : ''));
       };
     });
+    // Correct the current vial's mix date (logging again only adds a vial; the newest one stays current).
+    Array.prototype.forEach.call(el.querySelectorAll('[data-vupd]'), function (b) {
+      b.onclick = function () {
+        var p = S.protocols.find(function (x) { return x.id === b.getAttribute('data-vupd'); }), v = S.vials[+b.getAttribute('data-vi')];
+        var mixed = document.getElementById('cur-' + p.id).value;
+        if (!v || !mixed) return;
+        if (mixed > TODAY) { alert('The mix date cannot be in the future.'); return; }
+        v.mixed = mixed;
+        var filled = backfillSince(p, mixed);
+        save(); renderAll();
+        alert('Vial date saved: mixed ' + nice(mixed) + '.' + (filled ? ' ' + filled + ' scheduled dose' + (filled === 1 ? '' : 's') + ' since then marked as taken.' : ''));
+      };
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-vdel]'), function (b) {
+      b.onclick = function () {
+        if (!confirm('Remove this vial? Logged doses stay.')) return;
+        S.vials.splice(+b.getAttribute('data-vi'), 1); save(); renderAll();
+      };
+    });
+    // Past mix date: count the scheduled doses since then (through yesterday) as taken, so the vial and calendar agree.
+    function backfillSince(p, from) {
+      var box = document.getElementById('mixtk-' + p.id), n = 0;
+      if (from >= TODAY || (box && !box.checked)) return 0;
+      for (var d = from; d < TODAY; d = addDays(d, 1)) {
+        var r = scheduleFor(p, d), k = logKey(p, d);
+        if (r && !r.washout && !S.log[k]) { S.log[k] = { status: 'taken', dose: r.dose, site: '', note: 'Logged with vial mixed ' + from, time: '' }; n++; }
+      }
+      return n;
+    }
   }
 
   // ---- protocols ----
