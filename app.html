@@ -752,11 +752,21 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     deliver(res.text, name, 'text/calendar').then(function (ok) { if (ok) alert(res.count + ' dose events exported. Open the file to add them to your calendar.'); });
   };
   // Share sheet when the device can share files (iPhone home-screen apps can't download blobs); download otherwise.
+  // Download everywhere; only the iPhone/iPad home-screen app uses the share sheet (it can't download blobs).
+  // A failed share can't fall back to a download (the tap's permission is gone by then), so share is never tried elsewhere.
+  function iosHomeScreen() {
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return ios && (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  }
   function deliver(text, name, type) {
-    try {
-      var file = new File([text], name, { type: type });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).then(function () { return true; }, function (e) { return e && e.name === 'AbortError' ? false : download(); });
-    } catch (e) { /* fall through */ }
+    if (iosHomeScreen()) {
+      try {
+        var file = new File([text], name, { type: type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).then(function () { return true; }, function (e) { if (!e || e.name !== 'AbortError') alert('Could not open the share sheet. Try again, or export from Safari.'); return false; });
+      } catch (e) { /* fall through to the data link */ }
+      window.location.href = 'data:' + type + ';charset=utf-8,' + encodeURIComponent(text);
+      return Promise.resolve(true);
+    }
     return Promise.resolve(download());
     function download() { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; }
   }
