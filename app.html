@@ -49,6 +49,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   .panel{margin-top:0 !important;padding:12px}
   .grid7{gap:3px}.day{min-height:50px;padding:3px;border-radius:10px !important}.day .n{font-size:.8rem}
   .chip{display:inline-block;width:8px;height:8px;padding:0;margin:2px 1px 0;font-size:0;border-radius:50% !important;vertical-align:top}
+  .day.dosed{background:color-mix(in srgb,var(--blue) 9%,var(--card));border-color:color-mix(in srgb,var(--blue) 30%,var(--line))}
   .chip.missed{border-width:1.5px}.chip.taken{opacity:.55}.wlabel{display:none}
   .calhead h2{font-size:1rem}.calhead button{min-width:40px}
   button,select,input{font-size:16px;min-height:40px}input[type=checkbox]{min-height:0;width:20px;height:20px}
@@ -206,7 +207,9 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var week = Math.floor(inPhase / 7), acc = 0;
     for (var i = 0; i < p.steps.length; i++) {
       var st = p.steps[i];
-      if (st.weeks == null || week < acc + st.weeks) return { dose: st.dose, step: i, week: week + 1, cycle: cycleNo };
+      // With a cycle, the last step runs to the end of the on-phase (a ladder shorter than the cycle used to leave blank weeks).
+      var lastInCycle = i === p.steps.length - 1 && p.cycleOn && p.cycleOff;
+      if (st.weeks == null || lastInCycle || week < acc + st.weeks) return { dose: st.dose, step: i, week: week + 1, cycle: cycleNo };
       acc += st.weeks;
     }
     return null; // protocol ended
@@ -245,18 +248,19 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var first = new Date(view.getFullYear(), view.getMonth(), 1), start = ds(first);
     var lead = first.getDay(), html = '';
     for (var i = -lead; i < 42 - lead; i++) {
-      var s = addDays(start, i), m = +s.slice(5, 7) - 1, chips = '', wash = false, wl = '';
+      var s = addDays(start, i), m = +s.slice(5, 7) - 1, chips = '', wash = false, wl = '', dosed = false;
       S.protocols.forEach(function (p) {
         var r = scheduleFor(p, s);
         if (!r) return;
         if (r.washout) { wash = true; if (r.washDay === 1) wl = '<span class="wlabel">Washout begins</span>'; return; }
         if (s === p.endDate) wl = '<span class="wlabel">' + esc(p.short) + ' final dose</span>';
+        dosed = true;
         var e = S.log[logKey(p, s)], cls = e ? e.status : (s < TODAY ? 'missed' : '');
         var dose = e && e.dose != null ? e.dose : r.dose;
         var label = (S.protocols.length > 1 ? esc(p.short) + ' ' : '') + fd(dose) + ' ' + (p.unit || 'mg') + (injectable(p) ? ' · ' + f1(units(p, dose)) + 'u' : '');
         chips += '<span class="chip ' + cls + '" style="background:' + colorOf(p) + '" title="' + esc(p.name) + (cls === 'missed' ? ' (not logged)' : '') + '">' + (cls === 'taken' ? '✓ ' : cls === 'missed' ? '! ' : '') + label + '</span>';
       });
-      html += '<div class="day' + (m !== view.getMonth() ? ' out' : '') + (s === TODAY ? ' today' : '') + (s === sel ? ' sel' : '') + (wash ? ' wash' : '') + '" data-d="' + s + '"><span class="n">' + (+s.slice(8)) + '</span>' + chips + wl + '</div>';
+      html += '<div class="day' + (m !== view.getMonth() ? ' out' : '') + (s === TODAY ? ' today' : '') + (s === sel ? ' sel' : '') + (wash ? ' wash' : '') + (dosed ? ' dosed' : '') + '" data-d="' + s + '"><span class="n">' + (+s.slice(8)) + '</span>' + chips + wl + '</div>';
     }
     var cal = document.getElementById('cal'); cal.innerHTML = html;
     Array.prototype.forEach.call(cal.children, function (el) { el.onclick = function () { sel = el.getAttribute('data-d'); renderAll(); if (phone()) document.getElementById('dayPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
