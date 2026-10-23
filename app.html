@@ -102,7 +102,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     <section class="panel" data-tab="stock" id="stockPanel" style="margin-top:14px"><h2>Stock</h2><div id="stock"></div>
       <div class="proto"><b class="small">Add to stock</b>
         <div class="row"><label class="small" style="flex:1 1 100%;min-width:0">Item <select id="stItem" style="width:100%"></select></label><input id="stName" placeholder="Name" class="hide" style="flex:1 1 160px"></div>
-        <div class="row"><label class="small">Size <input type="number" id="stSize" min="0" step="any" style="width:80px"> <span id="stUnit">mg</span></label><label class="small">Qty <input type="number" id="stQty" min="0" value="1" style="width:60px"></label><label class="small">Expires <input type="date" id="stExp"></label></div>
+        <div class="row"><label class="small"><span id="stSizeL">Size</span> <input type="number" id="stSize" min="0" step="any" style="width:80px"> <span id="stUnit">mg</span></label><label class="small"><span id="stQtyL">Qty</span> <input type="number" id="stQty" min="0" value="1" style="width:60px"></label><label class="small hide" id="stUseL">Used per injection <input type="number" id="stUse" min="1" value="1" style="width:50px"></label><label class="small">Expires <input type="date" id="stExp"></label></div>
         <div class="row"><input id="stNote" placeholder="Note (lot, supplier…)" style="flex:1"><button id="stAdd">Add</button></div>
       </div>
     </section>
@@ -339,13 +339,16 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     Array.prototype.forEach.call(el.querySelectorAll('[data-act]'), function (b) {
       b.onclick = function () {
         var k = b.getAttribute('data-k'), act = b.getAttribute('data-act');
-        if (act === 'clear') { delete S.log[k]; save(); renderAll(); return; }
-        var e = S.log[k] || {}, p0 = protoOf(k);
+        var prev = S.log[k], p0 = protoOf(k), wasTaken = prev && prev.status === 'taken' ? (prev.perDay || (p0 && p0.perDay) || 1) : 0;
+        if (act === 'clear') { if (p0) useSupplies(p0, -wasTaken); delete S.log[k]; save(); renderAll(); return; }
+        var e = S.log[k] || {};
         var inp = el.querySelector('input[data-k="' + k + '"][data-f="dose"]'), site = el.querySelector('select[data-k="' + k + '"]'), note = el.querySelector('input[data-k="' + k + '"][data-f="note"]');
         e.status = act; e.dose = parseFloat(inp.value) || parseFloat(b.getAttribute('data-dose'));
         e.site = site ? site.value : ''; e.note = note ? note.value : ''; e.perDay = p0.perDay || 1;
         e.time = k.split('|')[1] === TODAY ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-        S.log[k] = e; save(); renderAll();
+        S.log[k] = e;
+        if (p0) useSupplies(p0, (act === 'taken' ? e.perDay : 0) - wasTaken);
+        save(); renderAll();
       };
     });
   }
@@ -587,7 +590,25 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   }
   // ---- stock: unmixed vials / packs / bottles on hand ----
   // Matching: same compound; injectables also need the same vial size, since units depend on it.
-  function stockFor(p) { return S.stock.filter(function (x) { return x.slug === p.slug && (!injectable(p) || +x.size === +p.vial.mg); }); }
+  var SUPPLIES = { syringe: { name: 'Insulin syringes (U-100)', unit: 'syringes', perBox: 100 }, pad: { name: 'Alcohol pads', unit: 'pads', perBox: 100 } };
+  function supplies() { return S.stock.filter(function (x) { return x.kind === 'supply'; }); }
+  // Injections on day s across all active injectable protocols (only days not yet logged when 'unloggedOnly').
+  function injectionsOn(s, unloggedOnly) {
+    var n = 0;
+    S.protocols.forEach(function (p) { if (!injectable(p) || p.paused) return; var r = scheduleFor(p, s); if (r && !r.washout && !(unloggedOnly && (S.log[logKey(p, s)] || {}).status)) n += p.perDay || 1; });
+    return n;
+  }
+  function supplyRunOut(x) {
+    var left = +x.qty || 0, use = +x.usePer || 1;
+    for (var i = 0; i < 730; i++) { left -= injectionsOn(addDays(TODAY, i), true) * use; if (left < 0) return { date: addDays(TODAY, i), days: i }; }
+    return { enough: true };
+  }
+  // Taken uses supplies; un-taking (Clear, Skipped, or a different dose count) puts them back.
+  function useSupplies(p, delta) {
+    if (!injectable(p) || !delta) return;
+    supplies().forEach(function (x) { x.qty = Math.max(0, (+x.qty || 0) - delta * (+x.usePer || 1)); });
+  }
+  function stockFor(p) { return S.stock.filter(function (x) { return x.kind !== 'supply' && x.slug === p.slug && (!injectable(p) || +x.size === +p.vial.mg); }); }
   function stockQty(p) { return stockFor(p).reduce(function (a, x) { return a + (+x.qty || 0); }, 0); }
   // Amount one scheduled day uses, in the stock item's unit: supplements count servings, everything else the dose.
   function dayUse(p, r) { return p.route === 'Supplement' ? (p.perDay || 1) : r.dose * (p.perDay || 1); }
@@ -607,6 +628,12 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   function renderStock() {
     var el = document.getElementById('stock');
     var html = S.stock.map(function (x, i) {
+      if (x.kind === 'supply') {
+        var ro = supplyRunOut(x), perDayNow = injectionsOn(TODAY, false);
+        return '<div class="proto"><div class="row"><b style="flex:1">' + esc(x.name) + '</b><button class="ghost" data-sq="' + i + '" data-d="-1" aria-label="One less">−</button><b style="min-width:3ch;text-align:center">' + x.qty + '</b><button class="ghost" data-sq="' + i + '" data-d="1" aria-label="One more">+</button><button class="ghost" data-sbox="' + i + '">+ box (' + (x.perBox || 100) + ')</button><button class="ghost" data-sdel="' + i + '">Remove</button></div>' +
+          '<p class="small">' + esc(x.unit) + ' on hand · ' + (x.usePer || 1) + ' per injection' + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
+          '<p class="small">' + (ro.enough ? '<span class="okc">Enough for the rest of your injection schedules</span>' : '<span class="' + (ro.days < 21 ? 'warn' : '') + '">Runs out about ' + nice(ro.date) + ' (' + ro.days + ' d)</span>') + (perDayNow ? ' · ' + perDayNow + ' injection' + (perDayNow === 1 ? '' : 's') + ' today' : '') + '</p></div>';
+      }
       var users = S.protocols.filter(function (p) { return stockFor(p).indexOf(x) >= 0; });
       var expDays = x.expires ? diffDays(TODAY, x.expires) : null;
       var supply = users.map(function (p) { var ro = runOut(p); return !ro ? '' : ro.enough ? '<span class="okc">Enough for the rest of the ' + esc(p.short) + ' schedule</span>' : '<span class="' + (ro.days < 21 ? 'warn' : '') + '">' + esc(p.short) + ' runs out about ' + nice(ro.date) + ' (' + ro.days + ' d)</span>'; }).filter(Boolean).join(' · ');
@@ -616,15 +643,19 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     }).join('');
     el.innerHTML = html || '<p class="muted">Nothing in stock yet. Add vials, packs or bottles below.</p>';
     Array.prototype.forEach.call(el.querySelectorAll('[data-sq]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sq')]; x.qty = Math.max(0, (+x.qty || 0) + +b.getAttribute('data-d')); save(); renderAll(); }; });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-sbox]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sbox')]; x.qty = (+x.qty || 0) + (+x.perBox || 100); save(); renderAll(); }; });
     Array.prototype.forEach.call(el.querySelectorAll('[data-sdel]'), function (b) { b.onclick = function () { if (confirm('Remove this item from stock?')) { S.stock.splice(+b.getAttribute('data-sdel'), 1); save(); renderAll(); } }; });
   }
   // Add form: catalog compounds, supplements, or anything typed in.
   (function () {
     var sel = document.getElementById('stItem');
-    sel.innerHTML = '<optgroup label="Compounds">' + C.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.name) + '</option>'; }).join('') + '</optgroup><optgroup label="Supplements">' + SUPPS.map(function (s) { return '<option value="supp:' + s.id + '">' + esc(s.name) + '</option>'; }).join('') + '</optgroup><option value="__other">Other (type a name)…</option>';
+    sel.innerHTML = '<optgroup label="Injection supplies"><option value="__syringe">Insulin syringes (U-100)</option><option value="__pad">Alcohol pads</option></optgroup><optgroup label="Compounds">' + C.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.name) + '</option>'; }).join('') + '</optgroup><optgroup label="Supplements">' + SUPPS.map(function (s) { return '<option value="supp:' + s.id + '">' + esc(s.name) + '</option>'; }).join('') + '</optgroup><option value="__other">Other (type a name)…</option>';
     function prefill() {
-      var v = sel.value, c = byslug[v], other = v === '__other';
+      var v = sel.value, c = byslug[v], other = v === '__other', sup = SUPPLIES[v.slice(2)];
       document.getElementById('stName').classList.toggle('hide', !other);
+      document.getElementById('stUseL').classList.toggle('hide', !sup);
+      document.getElementById('stSizeL').textContent = sup ? 'Per box' : 'Size'; document.getElementById('stQtyL').textContent = sup ? 'Boxes' : 'Qty';
+      if (sup) { document.getElementById('stUnit').textContent = sup.unit; document.getElementById('stSize').value = sup.perBox; document.getElementById('stUse').value = 1; return; }
       var unit = other ? '' : c ? (c.unit || 'mg') : 'servings';
       var inj = c && (!c.route || c.route === 'Injectable');
       document.getElementById('stUnit').textContent = unit || 'per item';
@@ -636,6 +667,14 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     if (used) sel.value = used;
     prefill();
     document.getElementById('stAdd').onclick = function () {
+      var sup0 = SUPPLIES[sel.value.slice(2)];
+      if (sup0) {
+        var per = parseInt(document.getElementById('stSize').value, 10) || sup0.perBox, boxes = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0), use = Math.max(1, parseInt(document.getElementById('stUse').value, 10) || 1);
+        var have = supplies().filter(function (x) { return x.supply === sel.value.slice(2); })[0];
+        if (have) { have.qty = (+have.qty || 0) + per * boxes; have.perBox = per; have.usePer = use; }
+        else S.stock.unshift({ id: newId(), kind: 'supply', supply: sel.value.slice(2), slug: '', name: sup0.name, unit: sup0.unit, perBox: per, usePer: use, qty: per * boxes, note: document.getElementById('stNote').value.trim() });
+        document.getElementById('stNote').value = ''; document.getElementById('stQty').value = 1; save(); renderAll(); return;
+      }
       var v = sel.value, c = byslug[v], other = v === '__other', sp = v.indexOf('supp:') === 0 ? bySupp[v.slice(5)] : null;
       var name = other ? document.getElementById('stName').value.trim() : c ? c.name : sp ? sp.name : v;
       if (!name) { alert('Type a name for the item.'); return; }
@@ -648,6 +687,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   // Calendar heads-up when a protocol's stock runs out within 3 weeks.
   function lowStockLine() {
     var low = S.protocols.map(function (p) { var ro = runOut(p); return ro && !ro.enough && ro.days < 21 ? esc(p.short) + ' ~' + nice(ro.date) : ''; }).filter(Boolean);
+    supplies().forEach(function (x) { var ro = supplyRunOut(x); if (!ro.enough && ro.days < 21) low.push(esc(x.unit) + ' ~' + nice(ro.date)); });
     return low.length ? 'Running low: ' + low.join(', ') + '. ' : '';
   }
   function renderToday() {
