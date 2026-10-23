@@ -339,15 +339,16 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     Array.prototype.forEach.call(el.querySelectorAll('[data-act]'), function (b) {
       b.onclick = function () {
         var k = b.getAttribute('data-k'), act = b.getAttribute('data-act');
-        var prev = S.log[k], p0 = protoOf(k), wasTaken = prev && prev.status === 'taken' ? (prev.perDay || (p0 && p0.perDay) || 1) : 0;
-        if (act === 'clear') { if (p0) useSupplies(p0, -wasTaken); delete S.log[k]; save(); renderAll(); return; }
+        var prev = S.log[k], p0 = protoOf(k), day = k.split('|')[1], inj = p0 && injectable(p0), padBefore = anyTakenInj(day);
+        var wasTaken = prev && prev.status === 'taken' ? (prev.perDay || (p0 && p0.perDay) || 1) : 0;
+        if (act === 'clear') { delete S.log[k]; if (inj) useSupplies(-wasTaken, (anyTakenInj(day) ? 1 : 0) - (padBefore ? 1 : 0)); save(); renderAll(); return; }
         var e = S.log[k] || {};
         var inp = el.querySelector('input[data-k="' + k + '"][data-f="dose"]'), site = el.querySelector('select[data-k="' + k + '"]'), note = el.querySelector('input[data-k="' + k + '"][data-f="note"]');
         e.status = act; e.dose = parseFloat(inp.value) || parseFloat(b.getAttribute('data-dose'));
         e.site = site ? site.value : ''; e.note = note ? note.value : ''; e.perDay = p0.perDay || 1;
         e.time = k.split('|')[1] === TODAY ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
         S.log[k] = e;
-        if (p0) useSupplies(p0, (act === 'taken' ? e.perDay : 0) - wasTaken);
+        if (inj) useSupplies((act === 'taken' ? e.perDay : 0) - wasTaken, (anyTakenInj(day) ? 1 : 0) - (padBefore ? 1 : 0));
         save(); renderAll();
       };
     });
@@ -598,15 +599,21 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     S.protocols.forEach(function (p) { if (!injectable(p) || p.paused) return; var r = scheduleFor(p, s); if (r && !r.washout && !(unloggedOnly && (S.log[logKey(p, s)] || {}).status)) n += p.perDay || 1; });
     return n;
   }
+  function anyTakenInj(day) { return S.protocols.some(function (p) { return injectable(p) && (S.log[logKey(p, day)] || {}).status === 'taken'; }); }
+  // Future use: syringes = every remaining injection; pads = 1 per day that still has an injection and none taken yet.
   function supplyRunOut(x) {
-    var left = +x.qty || 0, use = +x.usePer || 1;
-    for (var i = 0; i < 730; i++) { left -= injectionsOn(addDays(TODAY, i), true) * use; if (left < 0) return { date: addDays(TODAY, i), days: i }; }
+    var left = +x.qty || 0;
+    for (var i = 0; i < 730; i++) {
+      var s = addDays(TODAY, i), inj = injectionsOn(s, true);
+      left -= x.supply === 'pad' ? (inj && !anyTakenInj(s) ? 1 : 0) : inj;
+      if (left < 0) return { date: s, days: i };
+    }
     return { enough: true };
   }
-  // Taken uses supplies; un-taking (Clear, Skipped, or a different dose count) puts them back.
-  function useSupplies(p, delta) {
-    if (!injectable(p) || !delta) return;
-    supplies().forEach(function (x) { x.qty = Math.max(0, (+x.qty || 0) - delta * (+x.usePer || 1)); });
+  // Taken uses supplies; un-taking (Clear, Skipped, a different dose count) puts them back.
+  // syringeDelta = change in injections taken; padDelta = +1 when the day gets its first taken injection, -1 when it loses its last.
+  function useSupplies(syringeDelta, padDelta) {
+    supplies().forEach(function (x) { var d = x.supply === 'pad' ? padDelta : syringeDelta; if (d) x.qty = Math.max(0, (+x.qty || 0) - d); });
   }
   function stockFor(p) { return S.stock.filter(function (x) { return x.kind !== 'supply' && x.slug === p.slug && (!injectable(p) || +x.size === +p.vial.mg); }); }
   function stockQty(p) { return stockFor(p).reduce(function (a, x) { return a + (+x.qty || 0); }, 0); }
@@ -631,7 +638,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
       if (x.kind === 'supply') {
         var ro = supplyRunOut(x), perDayNow = injectionsOn(TODAY, false);
         return '<div class="proto"><div class="row"><b style="flex:1">' + esc(x.name) + '</b><button class="ghost" data-sq="' + i + '" data-d="-1" aria-label="One less">−</button><input type="number" min="0" inputmode="numeric" data-sset="' + i + '" value="' + x.qty + '" aria-label="How many on hand" style="width:72px;text-align:center"><button class="ghost" data-sq="' + i + '" data-d="1" aria-label="One more">+</button><button class="ghost" data-sdel="' + i + '">Remove</button></div>' +
-          '<p class="small">' + esc(x.unit) + ' on hand · ' + (x.usePer || 1) + ' per injection' + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
+          '<p class="small">' + esc(x.unit) + ' on hand · ' + (x.supply === 'pad' ? '1 per injection day' : '1 per dose') + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
           '<p class="small">' + (ro.enough ? '<span class="okc">Enough for the rest of your injection schedules</span>' : '<span class="' + (ro.days < 21 ? 'warn' : '') + '">Runs out about ' + nice(ro.date) + ' (' + ro.days + ' d)</span>') + (perDayNow ? ' · ' + perDayNow + ' injection' + (perDayNow === 1 ? '' : 's') + ' today' : '') + '</p></div>';
       }
       var users = S.protocols.filter(function (p) { return stockFor(p).indexOf(x) >= 0; });
@@ -653,9 +660,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     function prefill() {
       var v = sel.value, c = byslug[v], other = v === '__other', sup = SUPPLIES[v.slice(2)];
       document.getElementById('stName').classList.toggle('hide', !other);
-      document.getElementById('stUseL').classList.toggle('hide', !sup);
       document.getElementById('stSize').closest('label').classList.toggle('hide', !!sup); document.getElementById('stQtyL').textContent = sup ? 'How many' : 'Qty';
-      if (sup) { document.getElementById('stUse').value = 1; return; }
+      if (sup) return;
       var unit = other ? '' : c ? (c.unit || 'mg') : 'servings';
       var inj = c && (!c.route || c.route === 'Injectable');
       document.getElementById('stUnit').textContent = unit || 'per item';
@@ -669,10 +675,10 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     document.getElementById('stAdd').onclick = function () {
       var sup0 = SUPPLIES[sel.value.slice(2)];
       if (sup0) {
-        var count = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0), use = Math.max(1, parseInt(document.getElementById('stUse').value, 10) || 1);
+        var count = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0);
         var have = supplies().filter(function (x) { return x.supply === sel.value.slice(2); })[0];
-        if (have) { have.qty = (+have.qty || 0) + count; have.usePer = use; }
-        else S.stock.unshift({ id: newId(), kind: 'supply', supply: sel.value.slice(2), slug: '', name: sup0.name, unit: sup0.unit, usePer: use, qty: count, note: document.getElementById('stNote').value.trim() });
+        if (have) have.qty = (+have.qty || 0) + count;
+        else S.stock.unshift({ id: newId(), kind: 'supply', supply: sel.value.slice(2), slug: '', name: sup0.name, unit: sup0.unit, qty: count, note: document.getElementById('stNote').value.trim() });
         document.getElementById('stNote').value = ''; document.getElementById('stQty').value = 1; save(); renderAll(); return;
       }
       var v = sel.value, c = byslug[v], other = v === '__other', sp = v.indexOf('supp:') === 0 ? bySupp[v.slice(5)] : null;
