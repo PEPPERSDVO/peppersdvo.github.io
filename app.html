@@ -12,7 +12,7 @@
 @media (max-width:900px){.app{grid-template-columns:1fr}}
 /* Desktop: calendar spans the full width; the other panels sit two-up underneath. */
 @media (min-width:761px){.app{max-width:1400px;grid-template-columns:1fr 1fr}.app>div{display:contents}.panel{margin-top:0 !important}
-  #calPanel{grid-column:1/-1;order:0}#dayPanel{order:1}#protPanel{order:2}.app [data-tab="cyc"]{order:3}.app [data-tab="more"]{order:4}
+  #calPanel{grid-column:1/-1;order:0}#dayPanel{order:1}#protPanel{order:2}.app [data-tab="cyc"]{order:3}.app [data-tab="stock"]{order:3}.app [data-tab="more"]{order:4}
   .day{min-height:104px}.chip{font-size:.74rem;padding:2px 6px}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .panel h2{margin:0 0 10px;font-size:.95rem;color:var(--blue);text-transform:uppercase;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -47,7 +47,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   #calPanel{margin-left:-10px !important;margin-right:-10px !important;border-radius:0 !important;border-left:0;border-right:0;padding:10px 3px 8px}
   #calPanel .calhead{padding:0 8px}#calPanel .note{padding:0 8px}
   #calPanel .grid7{gap:2px}#calPanel .day{min-height:58px;border-radius:8px !important}
-  body:not([data-tab="cal"]) [data-tab="cal"],body:not([data-tab="prot"]) [data-tab="prot"],body:not([data-tab="cyc"]) [data-tab="cyc"],body:not([data-tab="more"]) [data-tab="more"]{display:none}
+  body:not([data-tab="cal"]) [data-tab="cal"],body:not([data-tab="prot"]) [data-tab="prot"],body:not([data-tab="cyc"]) [data-tab="cyc"],body:not([data-tab="more"]) [data-tab="more"],body:not([data-tab="stock"]) [data-tab="stock"]{display:none}
   .panel{margin-top:0 !important;padding:12px}
   .grid7{gap:3px}.day{min-height:50px;padding:3px;border-radius:10px !important}.day .n{font-size:.8rem}
   .chip{display:inline-block;width:8px;height:8px;padding:0;margin:2px 1px 0;font-size:0;border-radius:50% !important;vertical-align:top}
@@ -59,7 +59,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   .steps-ed{width:100%}.steps-ed td input{width:100%}
   #protPanel h2{flex-direction:column;align-items:stretch}#protPanel h2 select,#protPanel h2 button{width:100%}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 18px rgba(194,58,94,.08);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
-  .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none !important;color:var(--muted);font-size:.72rem;font-weight:700;padding:4px 0;border-radius:12px !important;min-height:0}
+  .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none !important;color:var(--muted);font-size:.68rem;font-weight:700;padding:4px 0;border-radius:12px !important;min-height:0}
   .tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .tabbar button.on{color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,transparent) !important}
   .brandfoot{display:none}
@@ -86,6 +86,13 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   <div>
     <section class="panel" data-tab="cal" id="dayPanel"><h2 id="dayTitle">Day</h2><div id="dayBody"></div></section>
     <section class="panel" data-tab="cyc" style="margin-top:14px"><h2>Cycles &amp; vials</h2><div id="status"></div></section>
+    <section class="panel" data-tab="stock" id="stockPanel" style="margin-top:14px"><h2>Stock</h2><div id="stock"></div>
+      <div class="proto"><b class="small">Add to stock</b>
+        <div class="row"><label class="small" style="flex:1 1 100%;min-width:0">Item <select id="stItem" style="width:100%"></select></label><input id="stName" placeholder="Name" class="hide" style="flex:1 1 160px"></div>
+        <div class="row"><label class="small">Size <input type="number" id="stSize" min="0" step="any" style="width:80px"> <span id="stUnit">mg</span></label><label class="small">Qty <input type="number" id="stQty" min="0" value="1" style="width:60px"></label><label class="small">Expires <input type="date" id="stExp"></label></div>
+        <div class="row"><input id="stNote" placeholder="Note (lot, supplier…)" style="flex:1"><button id="stAdd">Add</button></div>
+      </div>
+    </section>
     <section class="panel" data-tab="more" style="margin-top:14px"><h2>Device calendar &amp; reminders</h2>
       <p class="small">Download your schedule as a calendar file. Your phone or PC calendar imports it, and each dose becomes an event with a reminder, so notifications fire even when this app is closed. Set each protocol's dose time on its card below.</p>
       <div class="row"><label class="small">Days ahead <select id="icsDays"><option>14</option><option selected>30</option><option>60</option><option>90</option></select></label>
@@ -104,6 +111,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   <button data-go="cal" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button>
   <button data-go="prot"><svg viewBox="0 0 24 24"><path d="m18 2 4 4M15 5l4 4M17 7l-9 9-3 1 1-3 9-9M7 17l-4 4"/></svg>Protocols</button>
   <button data-go="cyc"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>Cycles</button>
+  <button data-go="stock"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg>Stock</button>
   <button data-go="more"><svg viewBox="0 0 24 24"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zM18 16V11a6 6 0 0 0-12 0v5l-2 2h16z"/></svg>More</button>
 </nav>
 <script src="compounds.js"></script>
@@ -131,7 +139,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   var memory = null;
   function load() {
     try { var s = localStorage.getItem(KEY); if (s) return JSON.parse(s); } catch (e) { warnStore(); }
-    return memory || { protocols: [], log: {}, vials: [] };
+    return memory || { protocols: [], log: {}, vials: [], stock: [] };
   }
   function save() {
     memory = S;
@@ -139,6 +147,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   }
   function warnStore() { document.getElementById('storeWarn').textContent = 'Browser storage is unavailable. Changes will be lost when you close this tab. Export a backup.'; }
   var S = load();
+  S.stock = S.stock || [];
   // Repair: earlier builds gave every Seed-stack item the same id (deleting one deleted all).
   (function () { var seen = {}; S.protocols.forEach(function (p) { if (seen[p.id]) p.id = newId(); seen[p.id] = 1; }); })();
 
@@ -350,7 +359,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
         (nextDose ? '<p class="small">Next dose: <b>' + nice(nextDose[0]) + '</b> · ' + fd(nextDose[1].dose) + ' ' + (p.unit || 'mg') + (injectable(p) ? ' (' + f1(units(p, nextDose[1].dose)) + ' units)' : '') + '</p>' : '<p class="small">No upcoming doses (protocol ended or paused).</p>') +
         (injectable(p) && vs ? '<p class="small">Vial: ' + fd(vs.left) + ' of ' + vs.vial.mg + ' ' + (p.unit || 'mg') + ' left · ' + vs.doses + ' dose' + (vs.doses === 1 ? '' : 's') + ' taken · mixed ' + nice(vs.vial.mixed) + ' · ' + vs.age + ' d since mixing' + (p.useWithinDays && vs.age > p.useWithinDays ? ' <span class="warn">past the catalog window</span>' : '') + '</p><div class="bar2"><span style="width:' + Math.max(0, vs.left / vs.vial.mg * 100) + '%"></span></div>' : '') +
         (injectable(p) && vs ? '<div class="row"><label class="small">Current vial mixed <input type="date" value="' + vs.vial.mixed + '" id="cur-' + p.id + '"></label><button class="ghost" data-vupd="' + p.id + '" data-vi="' + S.vials.indexOf(vs.vial) + '">Save date</button><label class="small"><input type="checkbox" id="curtk-' + p.id + '" checked> count doses since then as taken</label><button class="ghost" data-vdel="' + p.id + '" data-vi="' + S.vials.indexOf(vs.vial) + '">Remove</button></div>' : '') +
-        (injectable(p) ? '<div class="row"><label class="small">Log a new vial mixed on <input type="date" value="' + TODAY + '" id="mix-' + p.id + '"></label><label class="small"><input type="checkbox" id="mixtk-' + p.id + '" checked> mark scheduled doses since then as taken</label><button class="ghost" data-mix="' + p.id + '">Log vial</button></div>' : '') + '</div>';
+        (injectable(p) ? '<div class="row"><label class="small">Log a new vial mixed on <input type="date" value="' + TODAY + '" id="mix-' + p.id + '"></label><label class="small"><input type="checkbox" id="mixtk-' + p.id + '" checked> mark scheduled doses since then as taken</label>' + (stockQty(p) ? '<label class="small"><input type="checkbox" id="mixst-' + p.id + '" checked> take 1 from stock (' + stockQty(p) + ' on hand)</label>' : '') + '<button class="ghost" data-mix="' + p.id + '">Log vial</button></div>' : '') + '</div>';
     });
     var el = document.getElementById('status');
     el.innerHTML = h || '<p class="muted">Add a protocol to start tracking.</p>';
@@ -361,9 +370,11 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
         if (!mixed) return;
         if (mixed > TODAY) { alert('The mix date cannot be in the future.'); return; }
         S.vials.push({ proto: p.id, mixed: mixed, mg: p.vial.mg, ml: p.vial.ml });
-        var filled = backfillSince(p, mixed, 'mixtk-');
+        var filled = backfillSince(p, mixed, 'mixtk-'), took = '';
+        var useBox = document.getElementById('mixst-' + p.id), it = stockFor(p).filter(function (x) { return x.qty > 0; })[0];
+        if (it && useBox && useBox.checked) { it.qty--; took = ' Took 1 from stock (' + it.qty + ' left).'; }
         save(); renderAll();
-        alert('Vial logged, mixed ' + nice(mixed) + '.' + (filled ? ' ' + filled + ' scheduled dose' + (filled === 1 ? '' : 's') + ' since then marked as taken.' : ''));
+        alert('Vial logged, mixed ' + nice(mixed) + '.' + (filled ? ' ' + filled + ' scheduled dose' + (filled === 1 ? '' : 's') + ' since then marked as taken.' : '') + took);
       };
     });
     // Correct the current vial's mix date (logging again only adds a vial; the newest one stays current).
@@ -534,11 +545,77 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
 
   function renderNag() {
     var el = document.getElementById('backupNag'), age = S.lastBackup ? diffDays(S.lastBackup, TODAY) : null;
-    var show = S.protocols.length && (age === null || age > 14);
-    el.classList.toggle('hide', !show);
-    if (show) { el.innerHTML = (age === null ? 'Your dosing log lives only on this device. ' : 'Last backup ' + age + ' days ago. ') + '<button class="ghost" id="nagGo">Back up now</button>'; document.getElementById('nagGo').onclick = function () { setTab('more'); document.getElementById('exportBtn').scrollIntoView({ block: 'center' }); }; }
+    var backup = S.protocols.length && (age === null || age > 14), low = lowStockLine();
+    el.classList.toggle('hide', !backup && !low);
+    if (low && !backup) { el.innerHTML = low + '<button class="ghost" id="nagStock">Open stock</button>'; document.getElementById('nagStock').onclick = function () { setTab('stock'); document.getElementById('stockPanel').scrollIntoView({ block: 'start' }); }; }
+    if (backup) { el.innerHTML = low + (age === null ? 'Your dosing log lives only on this device. ' : 'Last backup ' + age + ' days ago. ') + '<button class="ghost" id="nagGo">Back up now</button>'; document.getElementById('nagGo').onclick = function () { setTab('more'); document.getElementById('exportBtn').scrollIntoView({ block: 'center' }); }; }
   }
-  function renderAll() { renderCal(); renderDay(); renderStatus(); renderProtos(); renderNag(); }
+  // ---- stock: unmixed vials / packs / bottles on hand ----
+  // Matching: same compound; injectables also need the same vial size, since units depend on it.
+  function stockFor(p) { return S.stock.filter(function (x) { return x.slug === p.slug && (!injectable(p) || +x.size === +p.vial.mg); }); }
+  function stockQty(p) { return stockFor(p).reduce(function (a, x) { return a + (+x.qty || 0); }, 0); }
+  // Amount one scheduled day uses, in the stock item's unit: supplements count servings, everything else the dose.
+  function dayUse(p, r) { return p.route === 'Supplement' ? (p.perDay || 1) : r.dose * (p.perDay || 1); }
+  // Walks the real schedule (ladder, cycles, washout, end date) until on-hand supply is used up.
+  function runOut(p) {
+    var items = stockFor(p); if (!items.length || p.paused) return null;
+    var size = +items[0].size || 0, left = stockQty(p) * size, vs = injectable(p) ? vialStatus(p, TODAY) : null;
+    if (vs && vs.left > 0) left += vs.left;
+    if (p.route === 'Supplement' || !injectable(p)) left = stockQty(p) * size; // packs and bottles: count what's on hand
+    for (var i = 0; i < 730; i++) {
+      var s = addDays(TODAY, i), r = scheduleFor(p, s);
+      if (r && !r.washout && !(S.log[logKey(p, s)] || {}).status) { left -= dayUse(p, r); if (left < 0) return { date: s, days: i }; }
+      if (p.endDate && s > p.endDate) return { enough: true };
+    }
+    return { enough: true };
+  }
+  function renderStock() {
+    var el = document.getElementById('stock');
+    var html = S.stock.map(function (x, i) {
+      var users = S.protocols.filter(function (p) { return stockFor(p).indexOf(x) >= 0; });
+      var expDays = x.expires ? diffDays(TODAY, x.expires) : null;
+      var supply = users.map(function (p) { var ro = runOut(p); return !ro ? '' : ro.enough ? '<span class="okc">Enough for the rest of the ' + esc(p.short) + ' schedule</span>' : '<span class="' + (ro.days < 21 ? 'warn' : '') + '">' + esc(p.short) + ' runs out about ' + nice(ro.date) + ' (' + ro.days + ' d)</span>'; }).filter(Boolean).join(' · ');
+      return '<div class="proto"><div class="row"><b style="flex:1">' + esc(x.name) + '</b><button class="ghost" data-sq="' + i + '" data-d="-1" aria-label="One less">−</button><b style="min-width:2ch;text-align:center">' + x.qty + '</b><button class="ghost" data-sq="' + i + '" data-d="1" aria-label="One more">+</button><button class="ghost" data-sdel="' + i + '">Remove</button></div>' +
+        '<p class="small">' + (x.size ? fd(x.size) + ' ' + esc(x.unit || '') + ' each' : '') + (x.expires ? ' · expires ' + nice(x.expires) + (expDays < 0 ? ' <span class="warn">(expired)</span>' : expDays <= 30 ? ' <span class="warn">(within 30 days)</span>' : '') : '') + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
+        (supply ? '<p class="small">' + supply + '</p>' : users.length ? '' : '<p class="small muted">Not used by an active protocol' + (x.slug && x.slug.indexOf('supp:') !== 0 && byslug[x.slug] ? ' (check the vial size matches)' : '') + '.</p>') + '</div>';
+    }).join('');
+    el.innerHTML = html || '<p class="muted">Nothing in stock yet. Add vials, packs or bottles below.</p>';
+    Array.prototype.forEach.call(el.querySelectorAll('[data-sq]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sq')]; x.qty = Math.max(0, (+x.qty || 0) + +b.getAttribute('data-d')); save(); renderAll(); }; });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-sdel]'), function (b) { b.onclick = function () { if (confirm('Remove this item from stock?')) { S.stock.splice(+b.getAttribute('data-sdel'), 1); save(); renderAll(); } }; });
+  }
+  // Add form: catalog compounds, supplements, or anything typed in.
+  (function () {
+    var sel = document.getElementById('stItem');
+    sel.innerHTML = '<optgroup label="Compounds">' + C.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.name) + '</option>'; }).join('') + '</optgroup><optgroup label="Supplements">' + SUPPS.map(function (s) { return '<option value="supp:' + s.id + '">' + esc(s.name) + '</option>'; }).join('') + '</optgroup><option value="__other">Other (type a name)…</option>';
+    function prefill() {
+      var v = sel.value, c = byslug[v], other = v === '__other';
+      document.getElementById('stName').classList.toggle('hide', !other);
+      var unit = other ? '' : c ? (c.unit || 'mg') : 'servings';
+      var inj = c && (!c.route || c.route === 'Injectable');
+      document.getElementById('stUnit').textContent = unit || 'per item';
+      document.getElementById('stSize').value = c ? (c.vials[c.primaryVial || 0] || {}).mg || '' : '';
+      document.getElementById('stSize').title = inj ? 'Vial strength: must match the protocol\'s vial for supply estimates' : 'Units per pack or servings per bottle';
+    }
+    sel.onchange = prefill;
+    var used = S.protocols.map(function (p) { return p.slug; }).filter(function (s) { return byslug[s] || s.indexOf('supp:') === 0; })[0];
+    if (used) sel.value = used;
+    prefill();
+    document.getElementById('stAdd').onclick = function () {
+      var v = sel.value, c = byslug[v], other = v === '__other', sp = v.indexOf('supp:') === 0 ? bySupp[v.slice(5)] : null;
+      var name = other ? document.getElementById('stName').value.trim() : c ? c.name : sp ? sp.name : v;
+      if (!name) { alert('Type a name for the item.'); return; }
+      var qty = Math.max(0, parseInt(document.getElementById('stQty').value, 10) || 0), size = parseFloat(document.getElementById('stSize').value) || 0;
+      S.stock.push({ id: newId(), slug: other ? '' : v, name: name + (c && size ? ' ' + fd(size) + ' ' + (c.unit || 'mg') : ''), size: size, unit: other ? '' : c ? (c.unit || 'mg') : 'servings', qty: qty, expires: document.getElementById('stExp').value || '', note: document.getElementById('stNote').value.trim() });
+      document.getElementById('stNote').value = ''; document.getElementById('stExp').value = ''; document.getElementById('stQty').value = 1;
+      save(); renderAll();
+    };
+  })();
+  // Calendar heads-up when a protocol's stock runs out within 3 weeks.
+  function lowStockLine() {
+    var low = S.protocols.map(function (p) { var ro = runOut(p); return ro && !ro.enough && ro.days < 21 ? esc(p.short) + ' ~' + nice(ro.date) : ''; }).filter(Boolean);
+    return low.length ? 'Running low: ' + low.join(', ') + '. ' : '';
+  }
+  function renderAll() { renderCal(); renderDay(); renderStatus(); renderProtos(); renderStock(); renderNag(); }
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* not supported */ }
   // ---- phone tabs: one section at a time; desktop ignores data-tab ----
   function phone() { return window.matchMedia && matchMedia('(max-width:760px)').matches; }
@@ -583,7 +660,7 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   document.getElementById('importFile').onchange = function () {
     var inputEl = this, file = this.files[0]; if (!file) return;
     file.text().then(function (t) {
-      try { var d = JSON.parse(t); if (!d.protocols || !d.log) throw new Error('not a backup'); if (confirm('Replace current data with this backup?')) { S = d; S.vials = S.vials || []; save(); renderAll(); alert('Backup restored: ' + S.protocols.length + ' protocol' + (S.protocols.length === 1 ? '' : 's') + '.'); } }
+      try { var d = JSON.parse(t); if (!d.protocols || !d.log) throw new Error('not a backup'); if (confirm('Replace current data with this backup?')) { S = d; S.vials = S.vials || []; S.stock = S.stock || []; save(); renderAll(); alert('Backup restored: ' + S.protocols.length + ' protocol' + (S.protocols.length === 1 ? '' : 's') + '.'); } }
       catch (e) { alert('Could not import: ' + e.message); }
       inputEl.value = '';
     });
