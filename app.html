@@ -10,6 +10,10 @@
 <style>
 .app{max-width:1200px;margin:14px auto;padding:0 12px;display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
 @media (max-width:900px){.app{grid-template-columns:1fr}}
+/* Desktop: calendar spans the full width; the other panels sit two-up underneath. */
+@media (min-width:761px){.app{max-width:1400px;grid-template-columns:1fr 1fr}.app>div{display:contents}.panel{margin-top:0 !important}
+  #calPanel{grid-column:1/-1;order:0}#dayPanel{order:1}#protPanel{order:2}.app [data-tab="cyc"]{order:3}.app [data-tab="more"]{order:4}
+  .day{min-height:104px}.chip{font-size:.74rem;padding:2px 6px}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .panel h2{margin:0 0 10px;font-size:.95rem;color:var(--blue);text-transform:uppercase;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .calhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}.calhead h2{margin:0;flex:1}
@@ -37,6 +41,10 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   body{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
   .app{margin:8px auto;padding:0 10px;gap:10px}.app>div{display:contents}
   #calPanel{order:1}#dayPanel{order:2}
+  /* Calendar runs edge to edge on phones */
+  #calPanel{margin-left:-10px !important;margin-right:-10px !important;border-radius:0 !important;border-left:0;border-right:0;padding:10px 3px 8px}
+  #calPanel .calhead{padding:0 8px}#calPanel .note{padding:0 8px}
+  #calPanel .grid7{gap:2px}#calPanel .day{min-height:58px;border-radius:8px !important}
   body:not([data-tab="cal"]) [data-tab="cal"],body:not([data-tab="prot"]) [data-tab="prot"],body:not([data-tab="cyc"]) [data-tab="cyc"],body:not([data-tab="more"]) [data-tab="more"]{display:none}
   .panel{margin-top:0 !important;padding:12px}
   .grid7{gap:3px}.day{min-height:50px;padding:3px;border-radius:10px !important}.day .n{font-size:.8rem}

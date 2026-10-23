@@ -58,3 +58,18 @@ html{-webkit-text-size-adjust:100%}
 :root[data-theme="dark"] .hero{background:linear-gradient(120deg,#5a2a3e,#2a1f25)}:root[data-theme="dark"] .hero h1{color:#f6c1d3}
 .filters>*{min-width:0}
 @media (max-width:760px){.filters>*{width:100%}}
+
+/* Guide list: name + three links, opens on peptides */
+.gfilter{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.gfilter input{flex:1 1 220px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+.seg{display:flex;background:var(--petal);border-radius:20px;padding:3px}.seg button{background:none !important;color:var(--deep);border:0;padding:6px 14px;font-weight:700;cursor:pointer}
+.seg button.on{background:var(--card) !important;box-shadow:0 1px 4px rgba(194,58,94,.18)}
+.glist{list-style:none;margin:0;padding:0}
+.glist li{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 4px;border-bottom:1px solid var(--line)}.glist li:last-child{border-bottom:0}
+.glist b{flex:1 1 200px;font-family:Poppins,sans-serif;font-weight:600}
+.gl{display:flex;gap:6px;flex-wrap:wrap}.gl a{background:var(--petal);color:var(--deep);border-radius:14px;padding:5px 12px;text-decoration:none;font-weight:600;font-size:.85rem;white-space:nowrap}
+.gl a:hover{background:var(--rose);color:#fff}
+@media (max-width:760px){.glist li{padding:12px 2px}.gl a{padding:8px 12px}.seg{width:100%}.seg button{flex:1}}
+
+/* Dark mode: rose text lightens so links and pills stay readable */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--deep:#f6b3c8;--rose:#e0668d}}
+:root[data-theme="dark"]{--deep:#f6b3c8;--rose:#e0668d}
