@@ -45,6 +45,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
 @media (min-width:761px){.flyout{top:0;right:0;bottom:0;width:min(460px,100vw);border-radius:18px 0 0 18px !important;transform:translateX(105%)}}
 @media (max-width:760px){.flyout{left:0;right:0;bottom:0;max-height:86vh;border-radius:20px 20px 0 0 !important;padding-bottom:calc(16px + env(safe-area-inset-bottom)) !important;transform:translateY(105%)}
   .flyout::before{content:"";display:block;width:42px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 8px}}
+.installbtn{background:var(--blue) !important;color:#fff !important;border-radius:20px !important;padding:6px 14px;font-weight:700;white-space:nowrap;flex:0 0 auto}.installbtn.hide{display:none}
+#installHelp{position:fixed;inset:auto 12px calc(80px + env(safe-area-inset-bottom)) 12px;z-index:45;max-width:440px;margin:0 auto}
 .ghostlink{display:inline-flex;align-items:center;min-height:34px;padding:4px 12px;border:1px solid var(--line);border-radius:20px;text-decoration:none;font-size:.85rem;font-weight:600;color:var(--blue)}
 .backupnag{background:color-mix(in srgb,var(--blue) 10%,var(--card));border-radius:10px;padding:6px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.backupnag.hide{display:none}
 .tabbar{display:none}
@@ -77,9 +79,9 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
   .brandfoot{display:none}
 }
 </style>
-<link rel="stylesheet" href="theme.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#d9577f"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="icon-512.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="PeppersDVO"><script>if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) navigator.serviceWorker.register('sw.js');</script></head>
+<link rel="stylesheet" href="theme.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#d9577f"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="icon-512.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="PeppersDVO"><script>if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) navigator.serviceWorker.register('sw.js');</script></head>
 <body>
-<nav class="topnav" id="nav"><a class="brandlogo" href="index.html"><img src="logo.png" alt="PeppersDVO"></a><button class="themebtn" onclick="var r=document.documentElement,t=r.dataset.theme==='dark'?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('dvo-theme',t)}catch(e){}">◐</button><a href="index.html">All guides</a><a class="on" href="app.html">Dosing calendar</a></nav>
+<nav class="topnav" id="nav"><a class="brandlogo" href="index.html"><img src="logo.png" alt="PeppersDVO"></a><button class="installbtn hide" id="installBtn">⤓ Install app</button><button class="themebtn" onclick="var r=document.documentElement,t=r.dataset.theme==='dark'?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('dvo-theme',t)}catch(e){}">◐</button><a href="index.html">All guides</a><a class="on" href="app.html">Dosing calendar</a></nav>
 <div class="app">
   <div>
     <section class="panel" data-tab="cal" id="calPanel">
@@ -100,12 +102,13 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     <section class="panel flyout" id="dayPanel" role="dialog" aria-modal="true" aria-labelledby="dayTitle" aria-hidden="true"><div class="flyhead"><h2 id="dayTitle">Day</h2><button class="ghost" id="dayClose" aria-label="Close">✕</button></div><div id="dayBody"></div></section>
     <div class="backdrop" id="dayBackdrop"></div>
     <section class="panel" data-tab="cyc" style="margin-top:14px"><h2>Cycles &amp; vials</h2><div id="status"></div></section>
-    <section class="panel" data-tab="stock" id="stockPanel" style="margin-top:14px"><h2>Stock</h2><div id="stock"></div>
-      <div class="proto"><b class="small">Add to stock</b>
+    <section class="panel" data-tab="stock" id="stockPanel" style="margin-top:14px"><h2>Stock <button id="stToggle">+ Add item</button></h2>
+      <div class="proto hide" id="stForm"><b class="small">Add to stock</b>
         <div class="row"><label class="small" style="flex:1 1 100%;min-width:0">Item <select id="stItem" style="width:100%"></select></label><input id="stName" placeholder="Name" class="hide" style="flex:1 1 160px"></div>
         <div class="row"><label class="small"><span id="stSizeL">Size</span> <input type="number" id="stSize" min="0" step="any" style="width:80px"> <span id="stUnit">mg</span></label><label class="small"><span id="stQtyL">Qty</span> <input type="number" id="stQty" min="0" value="1" style="width:60px"></label><label class="small hide" id="stUseL">Used per injection <input type="number" id="stUse" min="1" value="1" style="width:50px"></label><label class="small">Expires <input type="date" id="stExp"></label></div>
-        <div class="row"><input id="stNote" placeholder="Note (lot, supplier…)" style="flex:1"><button id="stAdd">Add</button></div>
+        <div class="row"><input id="stNote" placeholder="Note (lot, supplier…)" style="flex:1"><button class="ghost" id="stCancel">Done</button><button id="stAdd">Add</button></div>
       </div>
+      <div id="stock"></div>
     </section>
     <section class="panel" data-tab="more" style="margin-top:14px"><h2>Device calendar &amp; reminders</h2>
       <p class="small">Download your schedule as a calendar file. Your phone or PC calendar imports it, and each dose becomes an event with a reminder, so notifications fire even when this app is closed. Set each protocol's dose time on its card below.</p>
@@ -649,7 +652,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
         '<p class="small">' + (x.size ? fd(x.size) + ' ' + esc(x.unit || '') + ' each' : '') + (x.expires ? ' · expires ' + nice(x.expires) + (expDays < 0 ? ' <span class="warn">(expired)</span>' : expDays <= 30 ? ' <span class="warn">(within 30 days)</span>' : '') : '') + (x.note ? ' · ' + esc(x.note) : '') + '</p>' +
         (supply ? '<p class="small">' + supply + '</p>' : users.length ? '' : '<p class="small muted">Not used by an active protocol' + (x.slug && x.slug.indexOf('supp:') !== 0 && byslug[x.slug] ? ' (check the vial size matches)' : '') + '.</p>') + '</div>';
     }).join('');
-    el.innerHTML = html || '<p class="muted">Nothing in stock yet. Add vials, packs or bottles below.</p>';
+    el.innerHTML = html || '<p class="muted">Nothing in stock yet. Add vials, syringes, alcohol pads, packs or bottles above.</p>';
+    if (!S.stock.length) document.getElementById('stForm').classList.remove('hide');
     Array.prototype.forEach.call(el.querySelectorAll('[data-sq]'), function (b) { b.onclick = function () { var x = S.stock[+b.getAttribute('data-sq')]; x.qty = Math.max(0, (+x.qty || 0) + +b.getAttribute('data-d')); save(); renderAll(); }; });
     Array.prototype.forEach.call(el.querySelectorAll('[data-sset]'), function (inp) { inp.onchange = function () { var x = S.stock[+inp.getAttribute('data-sset')]; x.qty = Math.max(0, parseInt(inp.value, 10) || 0); save(); renderAll(); }; });
     Array.prototype.forEach.call(el.querySelectorAll('[data-sdel]'), function (b) { b.onclick = function () { if (confirm('Remove this item from stock?')) { S.stock.splice(+b.getAttribute('data-sdel'), 1); save(); renderAll(); } }; });
@@ -673,6 +677,8 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     var used = S.protocols.map(function (p) { return p.slug; }).filter(function (s) { return byslug[s] || s.indexOf('supp:') === 0; })[0];
     if (used) sel.value = used;
     prefill();
+    document.getElementById('stToggle').onclick = function () { var f = document.getElementById('stForm'); f.classList.toggle('hide'); if (!f.classList.contains('hide')) sel.focus(); };
+    document.getElementById('stCancel').onclick = function () { document.getElementById('stForm').classList.add('hide'); };
     document.getElementById('stAdd').onclick = function () {
       var sup0 = SUPPLIES[sel.value.slice(2)];
       if (sup0) {
@@ -706,6 +712,27 @@ select,input{background:var(--card);border:1px solid var(--line);border-radius:6
     el.innerHTML = due ? '<span>Today: ' + due + ' dose' + (due === 1 ? '' : 's') + ' to log</span><span>Log ›</span>' : '<span>Today: all ' + done + ' logged ✓</span><span>View ›</span>';
     el.onclick = function () { view = new Date(); view.setDate(1); openDay(TODAY); };
   }
+  // ---- install: the browser's own prompt where it offers one, otherwise per-device steps ----
+  (function () {
+    var btn = document.getElementById('installBtn'), deferred = null;
+    var standalone = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    if (standalone) return;
+    btn.classList.remove('hide');
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; });
+    window.addEventListener('appinstalled', function () { btn.classList.add('hide'); });
+    btn.onclick = function () {
+      if (deferred) { deferred.prompt(); deferred.userChoice.then(function () { deferred = null; }); return; }
+      var ua = navigator.userAgent, ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var steps = ios ? (/CriOS|FxiOS|EdgiOS/.test(ua) ? 'Open this page in <b>Safari</b>, tap <b>Share</b> (square with arrow), then <b>Add to Home Screen</b>.' : 'Tap <b>Share</b> (square with arrow) at the bottom, scroll down, then tap <b>Add to Home Screen</b>.')
+        : /Android/.test(ua) ? 'Tap the <b>⋮</b> menu (top right), then <b>Install app</b> or <b>Add to Home screen</b>.'
+        : /Edg\//.test(ua) ? 'Click the <b>⋯</b> menu, then <b>Apps</b> → <b>Install this site as an app</b> (or the install icon in the address bar).'
+        : /Chrome\//.test(ua) ? 'Click the install icon at the right end of the address bar, or <b>⋮</b> → <b>Cast, save and share</b> → <b>Install page as app</b>.'
+        : 'Use your browser menu to install this page or add it to your home screen.';
+      var old = document.getElementById('installHelp'); if (old) old.remove();
+      document.body.insertAdjacentHTML('beforeend', '<div class="panel" id="installHelp"><h2>Install PeppersDVO</h2><p>' + steps + '</p><p class="small muted">On a work computer, install may be turned off by your company.</p><div class="row"><button id="installOk">Got it</button></div></div>');
+      document.getElementById('installOk').onclick = function () { document.getElementById('installHelp').remove(); };
+    };
+  })();
   function renderAll() { renderCal(); renderDay(); renderStatus(); renderProtos(); renderStock(); renderNag(); renderToday(); }
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* not supported */ }
   // ---- phone tabs: one section at a time; desktop ignores data-tab ----
